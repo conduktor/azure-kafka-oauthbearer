@@ -12,7 +12,6 @@ import org.apache.kafka.common.security.oauthbearer.internals.secured.JaasOption
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -37,19 +36,15 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
 
     public static AccessTokenRetriever create(Map<String, Object> jaasConfig) {
         JaasOptionsUtils jou = new JaasOptionsUtils(jaasConfig);
-        var clientId = Optional.ofNullable(jou.validateString(CLIENT_ID_CONFIG, false));
-        var tenantId = Optional.ofNullable(jou.validateString(TENANT_ID_CONFIG, false));
-        var optionalCertificatePath = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false));
-
-        var clientCertificateCredentials = optionalCertificatePath.map(certificatePath ->
-                new ClientCertificateCredentialBuilder()
-                        .pfxCertificate(certificatePath)
-                        .clientId(clientId.orElseThrow(() -> new ConfigException(String.format("The OAuth configuration option %s value must be non-null when %s is set ", CLIENT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
-                        .tenantId(tenantId.orElseThrow(() -> new ConfigException(String.format("The OAuth configuration option %s value must be non-null when %s is set ", TENANT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
-                        .clientCertificatePassword(Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_PASSWORD_CONFIG, false)).orElse(""))
-                        .build()
-        );
-
+        var clientCertificateCredentials = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false))
+                .map(certificatePath ->
+                        new ClientCertificateCredentialBuilder()
+                                .pfxCertificate(certificatePath)
+                                .clientId(Optional.ofNullable(jou.validateString(CLIENT_ID_CONFIG, false)).orElseThrow(() -> new ConfigException(String.format("The OAuth configuration option %s value must be non-null when %s is set ", CLIENT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
+                                .tenantId(Optional.ofNullable(jou.validateString(TENANT_ID_CONFIG, false)).orElseThrow(() -> new ConfigException(String.format("The OAuth configuration option %s value must be non-null when %s is set ", TENANT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
+                                .clientCertificatePassword(Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_PASSWORD_CONFIG, false)).orElse(""))
+                                .build()
+                );
         var scopes = Optional.ofNullable(jou.validateString(SCOPE_CONFIG, false))
                 .map(config -> Arrays.stream(config.split(SCOPE_DELIMITER)).map(String::trim).toList())
                 .orElse(List.of());
@@ -58,7 +53,7 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
     }
 
     @Override
-    public String retrieve() throws IOException {
+    public String retrieve() {
         try {
             // See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
             // See https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes

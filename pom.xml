@@ -14,6 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <kafka.version>3.7.0</kafka.version>
         <azure-identity.version>1.12.0</azure-identity.version>
+        <jose4j.version>0.9.4</jose4j.version>
     </properties>
 
     <dependencies>
@@ -37,7 +38,7 @@
         <dependency>
             <groupId>org.bitbucket.b_c</groupId>
             <artifactId>jose4j</artifactId>
-            <version>0.9.4</version>
+            <version>${jose4j.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
