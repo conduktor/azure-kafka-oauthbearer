@@ -80,9 +80,6 @@ jobs:
           servers: '[{"id": "github", "username": "conduktorbot", "password": "${{ secrets.CONDUKTORBOT_GHCR_RW }}" }]'
           githubServer: false
 
-      - name: Build / Package
-        run: mvn -DskipTests package
-
       - name: Deploy
         run: mvn -DskipTests deploy
 
