@@ -11,7 +11,7 @@ jobs:
   publish-release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Checkout
@@ -42,5 +42,5 @@ jobs:
         with:
           name: "${{ env.RELEASE_VERSION }}"
           tag: ${{ env.RELEASE_VERSION }}
-          artifacts: "target/azure-kafka-oauthbearer-*.jar"
+          artifacts: "${{ github.workspace }}/target/azure-kafka-oauthbearer-*.jar"
           token: ${{ secrets.GITHUB_TOKEN }}
