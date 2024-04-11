@@ -1,0 +1,45 @@
+name: Publish release
+run-name: Publish release ${GITHUB_REF#refs/*/} on ${{ github.sha }} by @${{ github.actor }}
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Get the Github Release version
+        run: |
+          ref=${GITHUB_REF#refs/*/}
+          git show-ref --verify refs/tags/${ref} || { echo "Ref ${GITHUB_REF} is not a tag" ; exit 1; }
+          echo "RELEASE_VERSION=${ref}" >> "$GITHUB_ENV"
+
+      - name: Checkout tag ${{ env.RELEASE_VERSION }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_VERSION }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Deploy
+        run: mvn -DskipTests --batch-mode deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Github Release
+        uses: ncipollo/release-action@v1
+        with:
+          name: "${{ env.RELEASE_VERSION }}"
+          tag: ${{ env.RELEASE_VERSION }}
+          artifacts: "target/azure-kafka-oauthbearer-*.jar"
+          token: ${{ secrets.GITHUB_TOKEN }}
