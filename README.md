@@ -20,9 +20,19 @@ Check the latest version on the [releases page](https://github.com/conduktor/azu
     <artifactId>azure-kafka-oauthbearer</artifactId>
     <version>0.2.0</version>
 </dependency>
+
+<repositories>
+    <repository>
+        <id>conduktor-github</id>
+        <name>GitHub Conduktor Apache Maven Packages</name>
+        <url>https://maven.pkg.github.com/conduktor/_/</url>
+    </repository>
+</repositories>
 ```
 #### sbt
 ```sbt
+resolvers += s"GitHub Conduktor Apache Maven Packages" at s"https://maven.pkg.github.com/conduktor/_/"
+
 libraryDependencies += "io.conduktor" % "azure-kafka-oauthbearer" % "0.2.0"
 ```
 
