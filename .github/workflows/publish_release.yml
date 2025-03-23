@@ -4,43 +4,51 @@ run-name: Publish release ${{ github.ref_name }} on ${{ github.sha }} by @${{ gi
 on:
   push:
     tags:
-      - '*'
-  workflow_dispatch:
+      - 'v*' # Trigger on tags like v1.0.0
 
 jobs:
-  publish-release:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Check release version
-        run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> "$GITHUB_ENV"
-          else
-            echo "Ref ${GITHUB_REF} is not a tag" 
-            exit 1
-          fi
-
-      - name: Set up JDK 21
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: '17'
+          distribution: 'temurin' # Or another OpenJDK Distribution
 
-      - name: Deploy
-        run: mvn -DskipTests --batch-mode deploy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Github Release
-        uses: ncipollo/release-action@v1
+      - name: Cache Maven packages
+        uses: actions/cache@v3
         with:
-          name: "${{ env.RELEASE_VERSION }}"
-          tag: ${{ env.RELEASE_VERSION }}
-          artifacts: "${{ github.workspace }}/target/azure-kafka-oauthbearer-*.jar"
-          token: ${{ secrets.GITHUB_TOKEN }}
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean package --batch-mode
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.CONDUKTORBOT_GHCR_RW }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.CONDUKTORBOT_GHCR_RW }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/*.jar # Adjust path if needed.
+          asset_name: my-java-app-${{ github.ref_name }}.jar
+          asset_content_type: application/java-archive
