@@ -49,6 +49,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CONDUKTORBOT_GHCR_RW }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./target/*.jar # Adjust path if needed.
-          asset_name: my-java-app-${{ github.ref_name }}.jar
+          asset_path: /home/runner/work/azure-kafka-oauthbearer/azure-kafka-oauthbearer/target/*.jar # Adjust path if needed.
+          asset_name: azure-kafka-oauthbearer-${{ github.ref_name }}.jar
           asset_content_type: application/java-archive
