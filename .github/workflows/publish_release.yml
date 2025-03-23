@@ -33,7 +33,7 @@ jobs:
 
       - name: List target directory contents
         run: ls -alh target
-        
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -52,6 +52,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CONDUKTORBOT_GHCR_RW }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: /home/runner/work/azure-kafka-oauthbearer/azure-kafka-oauthbearer/target/*.jar # Adjust path if needed.
+          asset_path: target/azure-kafka-oauthbearer-0.3.0.jar
           asset_name: azure-kafka-oauthbearer-${{ github.ref_name }}.jar
           asset_content_type: application/java-archive
