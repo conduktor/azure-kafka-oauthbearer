@@ -31,6 +31,9 @@ jobs:
       - name: Build with Maven
         run: mvn clean package --batch-mode
 
+      - name: List target directory contents
+        run: ls -alh target
+        
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
