@@ -4,19 +4,13 @@
 
     <groupId>io.conduktor</groupId>
     <artifactId>azure-kafka-oauthbearer</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
-    <scm>
-        <connection>scm:git:${project.scm.url}</connection>
-        <developerConnection>scm:git:${project.scm.url}</developerConnection>
-        <url>https://github.com/conduktor/azure-kafka-oauthbearer.git</url>
-        <tag>HEAD</tag>
-    </scm>
+    <version>0.0.1-SNAPSHOT</version>   
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven-release-plugin.version>3.0.1</maven-release-plugin.version>
+        <maven-release-plugin.version>3.6.1</maven-release-plugin.version>
         <kafka.version>3.8.1</kafka.version>
         <azure-identity.version>1.15.2</azure-identity.version>
         <jose4j.version>0.9.6</jose4j.version>
@@ -31,43 +25,34 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>${kafka.version}</version>
-            <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-collections</groupId>
-                    <artifactId>commons-collections</artifactId>
-                </exclusion>
-            </exclusions>
+            <version>${kafka.version}</version>                      
         </dependency>
         <dependency>
             <groupId>org.bitbucket.b_c</groupId>
             <artifactId>jose4j</artifactId>
-            <version>${jose4j.version}</version>
-            <scope>provided</scope>
+            <version>${jose4j.version}</version>            
         </dependency>
-    </dependencies>
-    <distributionManagement>
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/conduktor/azure-kafka-oauthbearer</url>
-        </repository>
-    </distributionManagement>
-    <repositories>
-        <repository>
-            <id>central</id>
-            <url>https://repo1.maven.org/maven2</url>
-        </repository>
-    </repositories>
+    </dependencies>    
     <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-release-plugin</artifactId>
-                <version>${maven-release-plugin.version}</version>
-            </plugin>
-        </plugins>
-    </build>
-
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>${maven-release-plugin.version}</version> <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/dependencies</outputDirectory>
+              <includeScope>runtime</includeScope>
+              <excludeTransitive>false</excludeTransitive>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>
