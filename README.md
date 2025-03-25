@@ -80,6 +80,24 @@ sasl.login.callback.handler.class=io.conduktor.kafka.security.oauthbearer.azure.
 sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required scope="https://<resource>/.default";
 ```
 
+### Workload Identity Authentication
+
+Use Azure workload identity environment variables to configure token auth bearer retriever.
+More details on Azure identity [WorkloadIdentityCredential documentation](https://learn.microsoft.com/en-us/java/api/com.azure.identity.workloadidentitycredential?view=azure-java-stable)
+
+Use `io.conduktor.kafka.security.oauthbearer.azure.AzureManagedIdentityCallbackHandler` as the callback handler class and provide
+the following required parameters in the `sasl.jaas.config` property :
+- `scope` : The [scope](https://learn.microsoft.com/en-us/entra/identity-platform/scopes-oidc#the-default-scope) of the token
+
+The rest of the parameters are read from the environment variables.
+- `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_FEDERATED_TOKEN_FILE` : for workload identity authentication
+
+
+```properties
+sasl.login.callback.handler.class=io.conduktor.kafka.security.oauthbearer.azure.AzureManagedIdentityCallbackHandler
+sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required scope="https://<resource>/.default";
+```
+
 ### Other authentication methods
 [Other authentication methods](https://learn.microsoft.com/en-us/java/api/com.azure.identity.defaultazurecredential?view=azure-java-stable) are supported yet and could be added in the future.
 
