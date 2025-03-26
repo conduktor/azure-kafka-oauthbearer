@@ -36,6 +36,7 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
 
 
     public static AccessTokenRetriever create(Map<String, Object> jaasConfig) {
+        log.info("Creating AzureIdentityAccessTokenRetriever");
         JaasOptionsUtils jou = new JaasOptionsUtils(jaasConfig);
         var clientCertificateCredentials = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false))
                 .map(certificatePath ->
@@ -55,6 +56,7 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
 
     @Override
     public String retrieve() {
+        log.info("Retrieving access token using AzureIdentityAccessTokenRetriever");
         try {
             // See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
             // See https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes

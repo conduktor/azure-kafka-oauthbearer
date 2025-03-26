@@ -51,6 +51,7 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     @Override
     public void configure(Map<String, ?> configs, String saslMechanism, List<AppConfigurationEntry> jaasConfigEntries) {
+        log.error("Configuring AzureManagedIdentityCallbackHandler");
         this.moduleOptions = JaasOptionsUtils.getOptions(saslMechanism, jaasConfigEntries);
         AccessTokenRetriever accessTokenRetriever = AzureIdentityAccessTokenRetriever.create(this.moduleOptions);
         AccessTokenValidator accessTokenValidator = AccessTokenValidatorFactory.create(configs, saslMechanism);
@@ -72,6 +73,7 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     @Override
     public void close() {
+        log.error("Closing AzureManagedIdentityCallbackHandler");
         if (accessTokenRetriever != null) {
             try {
                 this.accessTokenRetriever.close();
@@ -83,6 +85,7 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     @Override
     public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
+        log.error("Handling AzureManagedIdentityCallbackHandler");
         checkInitialized();
         for (Callback callback : callbacks) {
             if (callback instanceof OAuthBearerTokenCallback) {
