@@ -8,4 +8,3 @@ COPY target/azure-kafka-oauthbearer-0.0.1-SNAPSHOT.jar /usr/share/logstash/logst
 COPY target/dependencies/* /usr/share/logstash/logstash-core/lib/jars/
 
 COPY logstash.conf /usr/share/logstash/pipeline/logstash.conf
-COPY log4j2.properties /usr/share/logstash/config/log4j2.properties

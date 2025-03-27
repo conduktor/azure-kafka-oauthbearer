@@ -48,10 +48,8 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     private boolean isInitialized = false;
 
-
     @Override
     public void configure(Map<String, ?> configs, String saslMechanism, List<AppConfigurationEntry> jaasConfigEntries) {
-        log.error("Configuring AzureManagedIdentityCallbackHandler");
         this.moduleOptions = JaasOptionsUtils.getOptions(saslMechanism, jaasConfigEntries);
         AccessTokenRetriever accessTokenRetriever = AzureIdentityAccessTokenRetriever.create(this.moduleOptions);
         AccessTokenValidator accessTokenValidator = AccessTokenValidatorFactory.create(configs, saslMechanism);
@@ -65,7 +63,9 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
         try {
             this.accessTokenRetriever.init();
         } catch (IOException var4) {
-            throw new KafkaException("The OAuth login configuration encountered an error when initializing the AccessTokenRetriever", var4);
+            throw new KafkaException(
+                    "The OAuth login configuration encountered an error when initializing the AccessTokenRetriever",
+                    var4);
         }
 
         this.isInitialized = true;
@@ -73,7 +73,6 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     @Override
     public void close() {
-        log.error("Closing AzureManagedIdentityCallbackHandler");
         if (accessTokenRetriever != null) {
             try {
                 this.accessTokenRetriever.close();
@@ -85,7 +84,6 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     @Override
     public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
-        log.error("Handling AzureManagedIdentityCallbackHandler");
         checkInitialized();
         for (Callback callback : callbacks) {
             if (callback instanceof OAuthBearerTokenCallback) {
@@ -146,6 +144,7 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     private void checkInitialized() {
         if (!isInitialized)
-            throw new IllegalStateException(String.format("To use %s, first call the configure or init method", getClass().getSimpleName()));
+            throw new IllegalStateException(
+                    String.format("To use %s, first call the configure or init method", getClass().getSimpleName()));
     }
 }

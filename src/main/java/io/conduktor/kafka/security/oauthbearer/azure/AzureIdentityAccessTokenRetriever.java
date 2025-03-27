@@ -29,24 +29,28 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
 
     final Optional<ClientCertificateCredential> clientCertificateCredentials;
 
-    public AzureIdentityAccessTokenRetriever(Optional<ClientCertificateCredential> clientCertificateCredentials, List<String> scopes) {
+    public AzureIdentityAccessTokenRetriever(Optional<ClientCertificateCredential> clientCertificateCredentials,
+            List<String> scopes) {
         this.scopes = scopes;
         this.clientCertificateCredentials = clientCertificateCredentials;
     }
 
-
     public static AccessTokenRetriever create(Map<String, Object> jaasConfig) {
-        log.info("Creating AzureIdentityAccessTokenRetriever");
         JaasOptionsUtils jou = new JaasOptionsUtils(jaasConfig);
         var clientCertificateCredentials = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false))
-                .map(certificatePath ->
-                        new ClientCertificateCredentialBuilder()
-                                .pfxCertificate(certificatePath)
-                                .clientId(Optional.ofNullable(jou.validateString(CLIENT_ID_CONFIG, false)).orElseThrow(() -> new ConfigException(String.format("The OAuth configuration option %s value must be non-null when %s is set ", CLIENT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
-                                .tenantId(Optional.ofNullable(jou.validateString(TENANT_ID_CONFIG, false)).orElseThrow(() -> new ConfigException(String.format("The OAuth configuration option %s value must be non-null when %s is set ", TENANT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
-                                .clientCertificatePassword(Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_PASSWORD_CONFIG, false)).orElse(""))
-                                .build()
-                );
+                .map(certificatePath -> new ClientCertificateCredentialBuilder()
+                        .pfxCertificate(certificatePath)
+                        .clientId(Optional.ofNullable(jou.validateString(CLIENT_ID_CONFIG, false))
+                                .orElseThrow(() -> new ConfigException(String.format(
+                                        "The OAuth configuration option %s value must be non-null when %s is set ",
+                                        CLIENT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
+                        .tenantId(Optional.ofNullable(jou.validateString(TENANT_ID_CONFIG, false))
+                                .orElseThrow(() -> new ConfigException(String.format(
+                                        "The OAuth configuration option %s value must be non-null when %s is set ",
+                                        TENANT_ID_CONFIG, CLIENT_CERTIFICATE_CONFIG))))
+                        .clientCertificatePassword(Optional
+                                .ofNullable(jou.validateString(CLIENT_CERTIFICATE_PASSWORD_CONFIG, false)).orElse(""))
+                        .build());
         var scopes = Optional.ofNullable(jou.validateString(SCOPE_CONFIG, false))
                 .map(config -> Arrays.stream(config.split(SCOPE_DELIMITER)).map(String::trim).toList())
                 .orElse(List.of());
@@ -56,14 +60,19 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
 
     @Override
     public String retrieve() {
-        log.info("Retrieving access token using AzureIdentityAccessTokenRetriever");
         try {
-            // See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
-            // See https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes
-            var chainedTokenCredentialBuilder = new ChainedTokenCredentialBuilder();            
-            chainedTokenCredentialBuilder.addLast(new EnvironmentCredentialBuilder().build());
-            chainedTokenCredentialBuilder.addLast(new WorkloadIdentityCredentialBuilder().build());            
+            // See
+            // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
+            // See
+            // https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes
+            var chainedTokenCredentialBuilder = new ChainedTokenCredentialBuilder();
             clientCertificateCredentials.ifPresent(chainedTokenCredentialBuilder::addLast);
+            chainedTokenCredentialBuilder.addLast(new EnvironmentCredentialBuilder().build());
+            if (System.getenv("AZURE_TENANT_ID") != null &&
+                    System.getenv("AZURE_CLIENT_ID") != null &&
+                    System.getenv("AZURE_FEDERATED_TOKEN_FILE") != null) {
+                chainedTokenCredentialBuilder.addLast(new WorkloadIdentityCredentialBuilder().build());
+            }
 
             var clientCredentials = chainedTokenCredentialBuilder.build();
             return clientCredentials.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
