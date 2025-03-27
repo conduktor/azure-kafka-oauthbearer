@@ -59,6 +59,8 @@ sasl.jaas.config=org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginMo
 Use Azure workload identity environment variables to configure token auth bearer retriever.
 More details on Azure identity [WorkloadIdentityCredential documentation](https://learn.microsoft.com/en-us/java/api/com.azure.identity.workloadidentitycredential?view=azure-java-stable)
 
+More details about implementing Workload Identity on AKS are available [here](https://learn.microsoft.com/en-us/azure/aks/workload-identity-deploy-cluster).
+
 Use `io.conduktor.kafka.security.oauthbearer.azure.AzureManagedIdentityCallbackHandler` as the callback handler class and provide
 the following required parameters in the `sasl.jaas.config` property :
 - `scope` : The [scope](https://learn.microsoft.com/en-us/entra/identity-platform/scopes-oidc#the-default-scope) of the token
