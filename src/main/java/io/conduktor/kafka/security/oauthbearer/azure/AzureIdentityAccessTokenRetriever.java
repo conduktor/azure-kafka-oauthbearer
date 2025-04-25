@@ -71,12 +71,17 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
     @Override
     public String retrieve() {
         try {
-            var tokenCredential = switch (azureAuthType) {
-                case "workload" -> new WorkloadIdentityCredentialBuilder().build();
-                case "clientcertificate" -> clientCertificateCredentials;
-                default -> new EnvironmentCredentialBuilder().build();
-            };            
-            return tokenCredential.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
+            if (azureAuthType.equals("workload")) {
+                return new WorkloadIdentityCredentialBuilder().build()
+                        .getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
+            } else if (azureAuthType.equals("clientcertificate")) {
+                return clientCertificateCredentials.get()
+                        .getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
+            } else {
+                return new EnvironmentCredentialBuilder().build()
+                        .getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
+            }
+
         } catch (RuntimeException e) {
             log.warn("Error while generating token using Azure identity", e);
             throw new AuthenticationException(e);
