@@ -25,18 +25,27 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
 
     private static final Logger log = LoggerFactory.getLogger(AzureIdentityAccessTokenRetriever.class);
     public static final String SCOPE_DELIMITER = ",";
+
+    final String azureAuthType;    
+    final Optional<ClientCertificateCredential> clientCertificateCredentials;
     final List<String> scopes;
 
-    final Optional<ClientCertificateCredential> clientCertificateCredentials;
-
-    public AzureIdentityAccessTokenRetriever(Optional<ClientCertificateCredential> clientCertificateCredentials,
+    public AzureIdentityAccessTokenRetriever(String azureAuthType,
+            Optional<ClientCertificateCredential> clientCertificateCredentials,
             List<String> scopes) {
+        this.azureAuthType = azureAuthType;
         this.scopes = scopes;
         this.clientCertificateCredentials = clientCertificateCredentials;
     }
 
     public static AccessTokenRetriever create(Map<String, Object> jaasConfig) {
         JaasOptionsUtils jou = new JaasOptionsUtils(jaasConfig);
+
+        var azureAuthType = Optional.ofNullable(jou.validateString(AZURE_CREDENTIAL_TYPE, false))
+                .orElseThrow(() -> new ConfigException(String.format(
+                        "The JAAS configuration option [%s] is either missing or set to null.",
+                        AZURE_CREDENTIAL_TYPE)));
+
         var clientCertificateCredentials = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false))
                 .map(certificatePath -> new ClientCertificateCredentialBuilder()
                         .pfxCertificate(certificatePath)
@@ -51,31 +60,23 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
                         .clientCertificatePassword(Optional
                                 .ofNullable(jou.validateString(CLIENT_CERTIFICATE_PASSWORD_CONFIG, false)).orElse(""))
                         .build());
+
         var scopes = Optional.ofNullable(jou.validateString(SCOPE_CONFIG, false))
                 .map(config -> Arrays.stream(config.split(SCOPE_DELIMITER)).map(String::trim).toList())
                 .orElse(List.of());
 
-        return new AzureIdentityAccessTokenRetriever(clientCertificateCredentials, scopes);
+        return new AzureIdentityAccessTokenRetriever(azureAuthType, clientCertificateCredentials, scopes);
     }
 
     @Override
     public String retrieve() {
         try {
-            // See
-            // https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
-            // See
-            // https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes
-            var chainedTokenCredentialBuilder = new ChainedTokenCredentialBuilder();
-            clientCertificateCredentials.ifPresent(chainedTokenCredentialBuilder::addLast);
-            chainedTokenCredentialBuilder.addLast(new EnvironmentCredentialBuilder().build());
-            if (System.getenv("AZURE_TENANT_ID") != null &&
-                    System.getenv("AZURE_CLIENT_ID") != null &&
-                    System.getenv("AZURE_FEDERATED_TOKEN_FILE") != null) {
-                chainedTokenCredentialBuilder.addLast(new WorkloadIdentityCredentialBuilder().build());
-            }
-
-            var clientCredentials = chainedTokenCredentialBuilder.build();
-            return clientCredentials.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
+            var tokenCredential = switch (azureAuthType) {
+                case "workload" -> new WorkloadIdentityCredentialBuilder().build();
+                case "clientcertificate" -> clientCertificateCredentials;
+                default -> new EnvironmentCredentialBuilder().build();
+            };            
+            return tokenCredential.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
         } catch (RuntimeException e) {
             log.warn("Error while generating token using Azure identity", e);
             throw new AuthenticationException(e);

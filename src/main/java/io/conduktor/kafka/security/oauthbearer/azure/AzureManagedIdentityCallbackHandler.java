@@ -27,6 +27,7 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
 
     private static final Logger log = LoggerFactory.getLogger(AzureManagedIdentityCallbackHandler.class);
 
+    public static final String AZURE_CREDENTIAL_TYPE = "azureAuthType"; // Possible values: environment, workload, clientcertificate
     public static final String TENANT_ID_CONFIG = "tenantId";
     public static final String CLIENT_ID_CONFIG = OAuthBearerLoginCallbackHandler.CLIENT_ID_CONFIG;
     public static final String CLIENT_CERTIFICATE_CONFIG = "certificate";
