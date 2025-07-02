@@ -18,7 +18,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven-release-plugin.version>3.0.1</maven-release-plugin.version>
-        <kafka.version>3.7.0</kafka.version>
+        <kafka.version>3.7.2</kafka.version>
         <azure-identity.version>1.12.2</azure-identity.version>
         <jose4j.version>0.9.4</jose4j.version>
     </properties>
