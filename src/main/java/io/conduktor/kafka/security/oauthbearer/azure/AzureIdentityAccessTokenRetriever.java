@@ -58,10 +58,10 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
         try {
             // See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
             // See https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes
-            var chainedTokenCredentialBuilder = new ChainedTokenCredentialBuilder();            
+            var chainedTokenCredentialBuilder = new ChainedTokenCredentialBuilder();
+            clientCertificateCredentials.ifPresent(chainedTokenCredentialBuilder::addFirst);
             chainedTokenCredentialBuilder.addLast(new EnvironmentCredentialBuilder().build());
             chainedTokenCredentialBuilder.addLast(new WorkloadIdentityCredentialBuilder().build());            
-            clientCertificateCredentials.ifPresent(chainedTokenCredentialBuilder::addLast);
 
             var clientCredentials = chainedTokenCredentialBuilder.build();
             return clientCredentials.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
