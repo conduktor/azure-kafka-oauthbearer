@@ -1,11 +1,7 @@
 package io.conduktor.kafka.security.oauthbearer.azure;
 
 import com.azure.core.credential.TokenRequestContext;
-import com.azure.identity.ChainedTokenCredentialBuilder;
-import com.azure.identity.ClientCertificateCredential;
-import com.azure.identity.ClientCertificateCredentialBuilder;
-import com.azure.identity.EnvironmentCredentialBuilder;
-import com.azure.identity.WorkloadIdentityCredentialBuilder;
+import com.azure.identity.*;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.security.oauthbearer.internals.secured.AccessTokenRetriever;
@@ -13,7 +9,6 @@ import org.apache.kafka.common.security.oauthbearer.internals.secured.JaasOption
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -62,28 +57,27 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
             var chainedTokenCredentialBuilder = new ChainedTokenCredentialBuilder();
             clientCertificateCredentials.ifPresent(chainedTokenCredentialBuilder::addFirst);
             chainedTokenCredentialBuilder.addLast(new EnvironmentCredentialBuilder().build());
-
-            String clientId = System.getenv("AZURE_CLIENT_ID");
-            String tenantId = System.getenv("AZURE_TENANT_ID");
-            String tokenFile = System.getenv("AZURE_FEDERATED_TOKEN_FILE");
-
-            if (clientId != null && tenantId != null && tokenFile != null) {
-                chainedTokenCredentialBuilder.addLast(new WorkloadIdentityCredentialBuilder().build());
-            } else {
-                List<String> missingVars = new ArrayList<>();
-                if (clientId == null) missingVars.add("AZURE_CLIENT_ID");
-                if (tenantId == null) missingVars.add("AZURE_TENANT_ID");
-                if (tokenFile == null) missingVars.add("AZURE_FEDERATED_TOKEN_FILE");
-
-                log.debug("WorkloadIdentityCredential not added: missing required environment variables: {}",
-                        String.join(", ", missingVars));
-            }
+            addWorkloadIdentityCredentialBuilderToChain(chainedTokenCredentialBuilder);
 
             var clientCredentials = chainedTokenCredentialBuilder.build();
             return clientCredentials.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
         } catch (RuntimeException e) {
             log.warn("Error while generating token using Azure identity", e);
             throw new AuthenticationException(e);
+        }
+    }
+
+    private static void addWorkloadIdentityCredentialBuilderToChain(ChainedTokenCredentialBuilder chainedTokenCredentialBuilder) {
+        List<String> requiredVars = List.of("AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_FEDERATED_TOKEN_FILE");
+        List<String> missingVars = requiredVars.stream()
+                .filter(var -> System.getenv(var) == null)
+                .toList();
+
+        if (missingVars.isEmpty()) {
+            chainedTokenCredentialBuilder.addLast(new WorkloadIdentityCredentialBuilder().build());
+        } else {
+            log.debug("WorkloadIdentityCredential not added in ChainedTokenCredential: missing required variables: {}",
+                    String.join(", ", missingVars));
         }
     }
 }
