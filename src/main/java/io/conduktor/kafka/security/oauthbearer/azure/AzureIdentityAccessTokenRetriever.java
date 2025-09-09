@@ -1,7 +1,11 @@
 package io.conduktor.kafka.security.oauthbearer.azure;
 
 import com.azure.core.credential.TokenRequestContext;
-import com.azure.identity.*;
+import com.azure.identity.ChainedTokenCredentialBuilder;
+import com.azure.identity.ClientCertificateCredential;
+import com.azure.identity.ClientCertificateCredentialBuilder;
+import com.azure.identity.EnvironmentCredentialBuilder;
+import com.azure.identity.WorkloadIdentityCredentialBuilder;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.security.oauthbearer.internals.secured.AccessTokenRetriever;
@@ -9,7 +13,11 @@ import org.apache.kafka.common.security.oauthbearer.internals.secured.JaasOption
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static io.conduktor.kafka.security.oauthbearer.azure.AzureManagedIdentityCallbackHandler.*;
 
