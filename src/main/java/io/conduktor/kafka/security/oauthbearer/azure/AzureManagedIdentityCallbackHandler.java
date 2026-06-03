@@ -1,15 +1,19 @@
 package io.conduktor.kafka.security.oauthbearer.azure;
 
-import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.security.auth.AuthenticateCallbackHandler;
 import org.apache.kafka.common.security.auth.SaslExtensions;
 import org.apache.kafka.common.security.auth.SaslExtensionsCallback;
+import org.apache.kafka.common.security.oauthbearer.DefaultJwtValidator;
+import org.apache.kafka.common.security.oauthbearer.JwtRetriever;
+import org.apache.kafka.common.security.oauthbearer.JwtValidator;
+import org.apache.kafka.common.security.oauthbearer.JwtValidatorException;
 import org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginCallbackHandler;
 import org.apache.kafka.common.security.oauthbearer.OAuthBearerToken;
 import org.apache.kafka.common.security.oauthbearer.OAuthBearerTokenCallback;
 import org.apache.kafka.common.security.oauthbearer.internals.OAuthBearerClientInitialResponse;
-import org.apache.kafka.common.security.oauthbearer.internals.secured.*;
+import org.apache.kafka.common.security.oauthbearer.internals.secured.JaasOptionsUtils;
+import org.apache.kafka.common.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +23,6 @@ import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.sasl.SaslException;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -32,58 +35,39 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
     public static final String CLIENT_CERTIFICATE_CONFIG = "certificate";
     public static final String CLIENT_CERTIFICATE_PASSWORD_CONFIG = "certificatePass";
     public static final String SCOPE_CONFIG = OAuthBearerLoginCallbackHandler.SCOPE_CONFIG;
-    public static final String TENANT_ID_DOC = "The certificate to use for certificate assertion validation";
-    public static final String CLIENT_ID_DOC = OAuthBearerLoginCallbackHandler.CLIENT_ID_DOC;
-    public static final String CLIENT_CERTIFICATE_DOC = "The certificate to use for certificate assertion validation";
-    public static final String CLIENT_CERTIFICATE_PASSWORD_DOC = "The passphrase for certificate";
-    public static final String SCOPE_DOC = OAuthBearerLoginCallbackHandler.SCOPE_DOC;
 
     private static final String EXTENSION_PREFIX = "extension_";
 
     private Map<String, Object> moduleOptions;
 
-    private AccessTokenRetriever accessTokenRetriever;
+    private JwtRetriever jwtRetriever;
 
-    private AccessTokenValidator accessTokenValidator;
-
-    private boolean isInitialized = false;
-
+    private JwtValidator jwtValidator;
 
     @Override
     public void configure(Map<String, ?> configs, String saslMechanism, List<AppConfigurationEntry> jaasConfigEntries) {
         this.moduleOptions = JaasOptionsUtils.getOptions(saslMechanism, jaasConfigEntries);
-        AccessTokenRetriever accessTokenRetriever = AzureIdentityAccessTokenRetriever.create(this.moduleOptions);
-        AccessTokenValidator accessTokenValidator = AccessTokenValidatorFactory.create(configs, saslMechanism);
-        this.init(accessTokenRetriever, accessTokenValidator);
-    }
 
-    public void init(AccessTokenRetriever accessTokenRetriever, AccessTokenValidator accessTokenValidator) {
-        this.accessTokenRetriever = accessTokenRetriever;
-        this.accessTokenValidator = accessTokenValidator;
+        JwtRetriever retriever = new AzureIdentityAccessTokenRetriever();
+        retriever.configure(configs, saslMechanism, jaasConfigEntries);
+        this.jwtRetriever = retriever;
 
-        try {
-            this.accessTokenRetriever.init();
-        } catch (IOException var4) {
-            throw new KafkaException("The OAuth login configuration encountered an error when initializing the AccessTokenRetriever", var4);
-        }
-
-        this.isInitialized = true;
+        // Azure only customises token retrieval; reuse Kafka's stock client-side validator
+        // (DefaultJwtValidator -> ClientJwtValidator) to parse the JWT into an OAuthBearerToken.
+        JwtValidator validator = new DefaultJwtValidator();
+        validator.configure(configs, saslMechanism, jaasConfigEntries);
+        this.jwtValidator = validator;
     }
 
     @Override
     public void close() {
-        if (accessTokenRetriever != null) {
-            try {
-                this.accessTokenRetriever.close();
-            } catch (IOException e) {
-                log.warn("The OAuth login configuration encountered an error when closing the AccessTokenRetriever", e);
-            }
-        }
+        Utils.closeQuietly(jwtRetriever, "JWT retriever");
+        Utils.closeQuietly(jwtValidator, "JWT validator");
     }
 
     @Override
-    public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
-        checkInitialized();
+    public void handle(Callback[] callbacks) throws UnsupportedCallbackException {
+        checkConfigured();
         for (Callback callback : callbacks) {
             if (callback instanceof OAuthBearerTokenCallback) {
                 handleTokenCallback((OAuthBearerTokenCallback) callback);
@@ -95,22 +79,19 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
         }
     }
 
-    private void handleTokenCallback(OAuthBearerTokenCallback callback) throws IOException {
-        checkInitialized();
-        String accessToken = accessTokenRetriever.retrieve();
+    private void handleTokenCallback(OAuthBearerTokenCallback callback) {
+        String accessToken = jwtRetriever.retrieve();
 
         try {
-            OAuthBearerToken token = accessTokenValidator.validate(accessToken);
+            OAuthBearerToken token = jwtValidator.validate(accessToken);
             callback.token(token);
-        } catch (ValidateException e) {
+        } catch (JwtValidatorException e) {
             log.warn(e.getMessage(), e);
             callback.error("invalid_token", e.getMessage(), null);
         }
     }
 
     private void handleExtensionsCallback(SaslExtensionsCallback callback) {
-        checkInitialized();
-
         Map<String, String> extensions = new HashMap<>();
 
         for (Map.Entry<String, Object> configEntry : this.moduleOptions.entrySet()) {
@@ -141,8 +122,8 @@ public class AzureManagedIdentityCallbackHandler implements AuthenticateCallback
         callback.extensions(saslExtensions);
     }
 
-    private void checkInitialized() {
-        if (!isInitialized)
-            throw new IllegalStateException(String.format("To use %s, first call the configure or init method", getClass().getSimpleName()));
+    private void checkConfigured() {
+        if (moduleOptions == null || jwtRetriever == null || jwtValidator == null)
+            throw new IllegalStateException(String.format("To use %s, first call the configure method", getClass().getSimpleName()));
     }
 }
