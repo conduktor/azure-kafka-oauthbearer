@@ -3,12 +3,13 @@ package io.conduktor.kafka.security.oauthbearer.azure;
 import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.*;
 import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.common.errors.AuthenticationException;
-import org.apache.kafka.common.security.oauthbearer.internals.secured.AccessTokenRetriever;
+import org.apache.kafka.common.security.oauthbearer.JwtRetriever;
+import org.apache.kafka.common.security.oauthbearer.JwtRetrieverException;
 import org.apache.kafka.common.security.oauthbearer.internals.secured.JaasOptionsUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.security.auth.login.AppConfigurationEntry;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -17,23 +18,18 @@ import java.util.Optional;
 import static io.conduktor.kafka.security.oauthbearer.azure.AzureManagedIdentityCallbackHandler.*;
 
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
+public class AzureIdentityAccessTokenRetriever implements JwtRetriever {
 
     private static final Logger log = LoggerFactory.getLogger(AzureIdentityAccessTokenRetriever.class);
     public static final String SCOPE_DELIMITER = ",";
-    final List<String> scopes;
 
-    final Optional<ClientCertificateCredential> clientCertificateCredentials;
+    private List<String> scopes = List.of();
+    private Optional<ClientCertificateCredential> clientCertificateCredentials = Optional.empty();
 
-    public AzureIdentityAccessTokenRetriever(Optional<ClientCertificateCredential> clientCertificateCredentials, List<String> scopes) {
-        this.scopes = scopes;
-        this.clientCertificateCredentials = clientCertificateCredentials;
-    }
-
-
-    public static AccessTokenRetriever create(Map<String, Object> jaasConfig) {
-        JaasOptionsUtils jou = new JaasOptionsUtils(jaasConfig);
-        var clientCertificateCredentials = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false))
+    @Override
+    public void configure(Map<String, ?> configs, String saslMechanism, List<AppConfigurationEntry> jaasConfigEntries) {
+        JaasOptionsUtils jou = new JaasOptionsUtils(saslMechanism, jaasConfigEntries);
+        this.clientCertificateCredentials = Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_CONFIG, false))
                 .map(certificatePath ->
                         new ClientCertificateCredentialBuilder()
                                 .pfxCertificate(certificatePath)
@@ -42,15 +38,13 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
                                 .clientCertificatePassword(Optional.ofNullable(jou.validateString(CLIENT_CERTIFICATE_PASSWORD_CONFIG, false)).orElse(""))
                                 .build()
                 );
-        var scopes = Optional.ofNullable(jou.validateString(SCOPE_CONFIG, false))
+        this.scopes = Optional.ofNullable(jou.validateString(SCOPE_CONFIG, false))
                 .map(config -> Arrays.stream(config.split(SCOPE_DELIMITER)).map(String::trim).toList())
                 .orElse(List.of());
-
-        return new AzureIdentityAccessTokenRetriever(clientCertificateCredentials, scopes);
     }
 
     @Override
-    public String retrieve() {
+    public String retrieve() throws JwtRetrieverException {
         try {
             // See https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow#second-case-access-token-request-with-a-certificate
             // See https://learn.microsoft.com/en-us/java/api/overview/azure/identity-readme?view=azure-java-stable#credential-classes
@@ -63,7 +57,7 @@ public class AzureIdentityAccessTokenRetriever implements AccessTokenRetriever {
             return clientCredentials.getTokenSync(new TokenRequestContext().setScopes(scopes)).getToken();
         } catch (RuntimeException e) {
             log.warn("Error while generating token using Azure identity", e);
-            throw new AuthenticationException(e);
+            throw new JwtRetrieverException(e);
         }
     }
 
